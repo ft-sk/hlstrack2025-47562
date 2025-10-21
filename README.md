@@ -17,7 +17,7 @@
 
 ### 赛题任务
 
-基于 Vitis HLS 工具的Vitis Library L1 算法优化（全做）：
+基于 Vitis HLS 工具的Vitis Library L1 算法优化：
 
 | 题目            | 算法               | 测试路径                                          |
 | --------------- | ------------------ | ------------------------------------------------- |
@@ -32,7 +32,7 @@
 - **优化目标**：最小化执行时间 `T_exec = Clock_Period × Latency`
 - **时钟约束**：允许修改时钟频率，时序违例不影响评分，单题分扣10分
 - **功能约束**：必须通过 C Simulation 和 Co-simulation 验证
-- **鼓励使用**：LLM 辅助优化（DeepSeek-Coder、Qwen-Coder 等）
+- **鼓励使用**：LLM 辅助优化（DeepSeek-Coder、Qwen-Cder 等）
 
 ---
 
@@ -49,7 +49,7 @@ T_exec = Estimated_Clock_Period × Cosim_Latency
 **评分说明**：
 
 - 📊 无论时序是否满足，均按 `Estimated Clock Period × Latency` 计算执行时间
-- ⚠️ 时序违例（Slack < 0）影响评分
+- ⚠️ 时序违例（Slack < 0）影响评分, 具体规则见细则
 - 💡 建议在报告中说明时序状态
 
 ### 单题评分公式
