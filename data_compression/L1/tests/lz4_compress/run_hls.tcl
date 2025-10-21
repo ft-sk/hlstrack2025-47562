@@ -27,7 +27,7 @@ set PROJ "lz4_compress_test.prj"
 set SOLN "sol1"
 
 if {![info exists CLKP]} {
-  set CLKP 3.3
+  set CLKP 15.0
 }
 
 open_project -reset $PROJ
@@ -42,6 +42,7 @@ open_solution -reset $SOLN
 
 set_part $XPART
 create_clock -period $CLKP
+set_clock_uncertainty 10%
 
 config_compile -pragma_strict_mode
 

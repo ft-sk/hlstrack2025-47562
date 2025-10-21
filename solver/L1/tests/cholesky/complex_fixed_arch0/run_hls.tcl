@@ -27,7 +27,7 @@ set PROJ "cholesky_test.prj"
 set SOLN "sol1"
 
 if {![info exists CLKP]} {
-  set CLKP 300MHz
+  set CLKP 7.0
 }
 
 open_project -reset $PROJ
@@ -42,6 +42,7 @@ open_solution -reset $SOLN
 
 set_part $XPART
 create_clock -period $CLKP
+set_clock_uncertainty 10%
 
 if {$CSIM == 1} {
   csim_design

@@ -27,7 +27,7 @@ set PROJ "hmac_sha256_test.prj"
 set SOLN "solution1"
 
 if {![info exists CLKP]} {
-  set CLKP 3.33
+  set CLKP 15.0
 }
 
 open_project -reset $PROJ
@@ -42,7 +42,7 @@ open_solution -reset $SOLN
 
 set_part $XPART
 create_clock -period $CLKP
-set_clock_uncertainty 1.05
+set_clock_uncertainty 10%
 
 if {$CSIM == 1} {
   csim_design

@@ -22,7 +22,7 @@ source /opt/xilinx/Vitis/2024.2/settings64.sh
 
 ### 1.2 工程目录
 
-克隆完整的 Vitis_Libraries 仓库：
+克隆完整的 hlstrack2025 仓库：
 
 ```bash
 git clone https://gitee.com/Vickyiii/hlstrack2025.git
@@ -41,13 +41,13 @@ export XPART=xc7z020-clg484-1
 
 ### 1.4 常用命令
 
-| 目标        | 命令                                          | 说明               |
-| ----------- | --------------------------------------------- | ------------------ |
-| C 仿真      | `make clean && make run TARGET=csim`        | 功能级验证         |
-| HLS 综合    | `make clean && make run TARGET=csynth`      | 生成综合报告       |
-| Co-simulation | `make clean && make run TARGET=cosim`     | RTL 仿真验证       |
-| Vivado 综合 | `make clean && make run TARGET=vivado_syn`  | 需要 Vivado flow   |
-| Vivado 实现 | `make clean && make run TARGET=vivado_impl` | 完整实现，耗时较长 |
+| 目标          | 命令                                          | 说明               |
+| ------------- | --------------------------------------------- | ------------------ |
+| C 仿真        | `make clean && make run TARGET=csim`        | 功能级验证         |
+| HLS 综合      | `make clean && make run TARGET=csynth`      | 生成综合报告       |
+| Co-simulation | `make clean && make run TARGET=cosim`       | RTL 仿真验证       |
+| Vivado 综合   | `make clean && make run TARGET=vivado_syn`  | 需要 Vivado flow   |
+| Vivado 实现   | `make clean && make run TARGET=vivado_impl` | 完整实现，耗时较长 |
 
 建议流程：
 
@@ -70,7 +70,7 @@ export XPART=xc7z020-clg484-1
 
 ## 2. GitHub 提交目录要求
 
-为便于助教自动化复现与评分，请提交完整的 **Vitis_Libraries** 仓库，按以下要求组织：
+为便于助教自动化复现与评分，请提交完整的 **hlstrack2025** 仓库，按以下要求组织：
 
 ### 2.1 允许修改的文件
 
@@ -81,8 +81,16 @@ export XPART=xc7z020-clg484-1
 - `security/L1/include/xf_security/` 下其他相关头文件（如需）
 
 > **注意**：HMAC-SHA256 使用两个核心头文件：
+>
 > - `hmac.hpp` - HMAC 框架实现
 > - `sha224_256.hpp` - 底层 SHA-256 哈希实现
+
+**时钟频率配置文件修改（允许）：**
+
+- `security/L1/tests/hmac/sha256/hls_config.tmpl` - HLS 配置模板文件
+- `security/L1/tests/hmac/sha256/run_hls.tcl` - Tcl 脚本（如存在）
+
+> **说明**：可以修改这些文件中的 `clock` 或 `create_clock -period` 参数来调整目标时钟频率，但需注意时序违例扣分规则（Slack ≤ 0 扣 10 分）
 
 ### 2.2 必须新增的目录与文件
 
@@ -90,21 +98,28 @@ export XPART=xc7z020-clg484-1
 
 ```
 security/L1/tests/hmac/sha256/
-├── Makefile                        # 原有文件（如有必要可微调）
+├── Makefile                        # 原有文件（保持不变）
+├── hls_config.tmpl                 # 原有文件（允许修改时钟频率）
+├── run_hls.tcl                     # 原有文件（允许修改时钟频率，如存在）
 ├── test.cpp                        # 原有文件（保持不变）
 ├── ...（其他原有文件保持不变）
 ├── reports/                        # 新增目录
-│   ├── csim.log                    # C 仿真日志
-│   ├── csynth.log                  # HLS 综合日志
-│   └── cosim.log                   # Co-simulation 日志
+│   ├── csynth.xml                      # HLS 综合日志
+│   ├── test_hmac_sha256_cosim.rpt      # Co-simulation 日志
+│   └── test_hmac_sha256_csim.log       # C 仿真日志
 └── prompts/                        # 新增目录
     └── llm_usage.md                # 大模型使用记录（见 §3 模板）
 ```
 
+**文件名说明**：
+- `csynth.xml` - C Synthesis 综合报告（XML 格式）
+- `test_hmac_sha256_cosim.rpt` - Co-simulation RTL 仿真报告
+- `test_hmac_sha256_csim.log` - C Simulation 运行日志
+
 ### 2.3 提交仓库完整结构示例
 
 ```
-Vitis_Libraries/
+hlstrack2025/
 ├── security/
 │   ├── L1/
 │   │   ├── include/
@@ -116,20 +131,26 @@ Vitis_Libraries/
 │   │   │   └── hmac/
 │   │   │       └── sha256/
 │   │   │           ├── Makefile
+│   │   │           ├── hls_config.tmpl     # 允许修改时钟频率
+│   │   │           ├── run_hls.tcl         # 允许修改时钟频率
 │   │   │           ├── test.cpp
-│   │   │           ├── reports/    # 新增
-│   │   │           └── prompts/    # 新增
+│   │   │           ├── reports/            # 新增（含实际生成的报告文件）
+│   │   │           └── prompts/            # 新增
 │   │   └── ...
 │   └── ...
+├── data_compression/                   # 其他题目目录
+├── solver/                             # 其他题目目录
 └── ...（其他库目录保持原样）
 ```
 
 **注意事项：**
 
 - 仅修改 `security/L1/include/xf_security/*.hpp` 中的头文件
+- 可修改 `hls_config.tmpl` 和 `run_hls.tcl` 中的时钟频率配置
+- `reports/` 中包含实际生成的报告文件：`csynth.xml`、`*_cosim.rpt`、`*_csim.log`
 - `reports/` 和 `prompts/` 仅在 `security/L1/tests/hmac/sha256/` 下新增
 - 其他所有目录与文件保持原样
-- 评审脚本将克隆官方仓库，替换你修改的头文件，复制 reports 和 prompts 后运行
+- 评审脚本将克隆官方仓库，替换你修改的头文件和配置文件，复制 reports 和 prompts 后运行
 
 ---
 

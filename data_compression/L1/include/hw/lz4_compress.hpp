@@ -120,106 +120,132 @@ static void lz4CompressPart2(hls::stream<uint8_t>& in_lit_inStream,
     bool lit_ending = false;
     bool extra_match_len = false;
     bool readOffsetFlag = true;
+    
+    // 优化：预先读取以打破依赖
+    ap_uint<64> nextLenOffsetValue;
+    ap_uint<16> match_offset_plus_one = 0;
 
 lz4_compress:
     for (uint32_t inIdx = 0; (inIdx < input_size) || (!readOffsetFlag);) {
 #pragma HLS PIPELINE II = 1
-        ap_uint<8> outValue;
-        ap_uint<64> nextLenOffsetValue;
+#pragma HLS DEPENDENCE variable=match_offset inter false
+#pragma HLS DEPENDENCE variable=lit_length inter false
+#pragma HLS DEPENDENCE variable=match_length inter false
+        ap_uint<8> outValue = 0;
 
+        // 优化：将读操作前置，减少关键路径
         if (readOffsetFlag) {
             nextLenOffsetValue = in_lenOffset_Stream.read();
             readOffsetFlag = false;
         }
 
-        if (next_state == WRITE_TOKEN) {
-            lit_length = nextLenOffsetValue.range(63, 32);
-            match_length = nextLenOffsetValue.range(15, 0);
-            match_offset = nextLenOffsetValue.range(31, 16);
-            inIdx += match_length + lit_length + 4;
+        // 使用本地变量缓存，减少位选择操作延迟
+        ap_uint<32> lit_len_tmp = nextLenOffsetValue.range(63, 32);
+        ap_uint<16> match_len_tmp = nextLenOffsetValue.range(15, 0);
+        ap_uint<16> match_off_tmp = nextLenOffsetValue.range(31, 16);
 
-            if (match_length == 777 && match_offset == 777) {
+        if (next_state == WRITE_TOKEN) {
+            lit_length = lit_len_tmp;
+            match_length = match_len_tmp;
+            match_offset = match_off_tmp;
+            
+            // 优化：简化 inIdx 更新逻辑
+            uint32_t idx_increment = (uint32_t)match_length + (uint32_t)lit_length + 4;
+            inIdx += idx_increment;
+
+            // 优化：合并条件判断，减少分支
+            bool is_special_end = (match_length == 777) && (match_offset == 777);
+            bool is_normal_end = (match_offset == 0) && (match_length == 0);
+            
+            if (is_special_end) {
                 inIdx = input_size;
                 lit_ending = true;
             }
 
             lit_len = lit_length;
             write_lit_length = lit_length;
-            if (match_offset == 0 && match_length == 0) {
-                lit_ending = true;
-            }
-            if (lit_length >= 15) {
-                outValue.range(7, 4) = 15;
+            lit_ending = lit_ending || is_normal_end;
+            
+            // 优化：重构条件逻辑，使用三元运算符减少分支
+            bool lit_len_ge_15 = (lit_length >= 15);
+            bool lit_len_gt_0 = (lit_length > 0);
+            
+            outValue.range(7, 4) = lit_len_ge_15 ? (ap_uint<4>)15 : 
+                                   lit_len_gt_0 ? (ap_uint<4>)lit_length : (ap_uint<4>)0;
+            
+            if (lit_len_ge_15) {
                 lit_length -= 15;
                 next_state = WRITE_LIT_LEN;
                 readOffsetFlag = false;
-            } else if (lit_length) {
-                outValue.range(7, 4) = lit_length;
+            } else if (lit_len_gt_0) {
                 lit_length = 0;
                 next_state = WRITE_LITERAL;
                 readOffsetFlag = false;
             } else {
-                outValue.range(7, 4) = 0;
                 next_state = WRITE_OFFSET0;
                 readOffsetFlag = false;
             }
-            if (match_length >= 15) {
-                outValue.range(3, 0) = 15;
+            
+            bool match_len_ge_15 = (match_length >= 15);
+            outValue.range(3, 0) = match_len_ge_15 ? (ap_uint<4>)15 : (ap_uint<4>)match_length;
+            
+            if (match_len_ge_15) {
                 match_length -= 15;
                 extra_match_len = true;
             } else {
-                outValue.range(3, 0) = match_length;
                 match_length = 0;
                 extra_match_len = false;
             }
+            
+            // 预计算 offset+1
+            match_offset_plus_one = match_offset + 1;
+            
         } else if (next_state == WRITE_LIT_LEN) {
-            if (lit_length >= 255) {
-                outValue = 255;
+            bool lit_len_ge_255 = (lit_length >= 255);
+            outValue = lit_len_ge_255 ? (ap_uint<8>)255 : (ap_uint<8>)lit_length;
+            
+            if (lit_len_ge_255) {
                 lit_length -= 255;
             } else {
-                outValue = lit_length;
                 next_state = WRITE_LITERAL;
                 readOffsetFlag = false;
             }
+            
         } else if (next_state == WRITE_LITERAL) {
             outValue = in_lit_inStream.read();
             write_lit_length--;
+            
             if (write_lit_length == 0) {
-                if (lit_ending) {
-                    next_state = WRITE_TOKEN;
-                    readOffsetFlag = true;
-                } else {
-                    next_state = WRITE_OFFSET0;
-                    readOffsetFlag = false;
-                }
+                next_state = lit_ending ? WRITE_TOKEN : WRITE_OFFSET0;
+                readOffsetFlag = lit_ending;
             }
+            
         } else if (next_state == WRITE_OFFSET0) {
-            match_offset++; // LZ4 standard
-            outValue = match_offset.range(7, 0);
+            // 使用预计算的值
+            outValue = match_offset_plus_one.range(7, 0);
             next_state = WRITE_OFFSET1;
             readOffsetFlag = false;
+            
         } else if (next_state == WRITE_OFFSET1) {
-            outValue = match_offset.range(15, 8);
-            if (extra_match_len) {
-                next_state = WRITE_MATCH_LEN;
-                readOffsetFlag = false;
-            } else {
-                next_state = WRITE_TOKEN;
-                readOffsetFlag = true;
-            }
+            outValue = match_offset_plus_one.range(15, 8);
+            next_state = extra_match_len ? WRITE_MATCH_LEN : WRITE_TOKEN;
+            readOffsetFlag = !extra_match_len;
+            
         } else if (next_state == WRITE_MATCH_LEN) {
-            if (match_length >= 255) {
-                outValue = 255;
+            bool match_len_ge_255 = (match_length >= 255);
+            outValue = match_len_ge_255 ? (ap_uint<8>)255 : (ap_uint<8>)match_length;
+            
+            if (match_len_ge_255) {
                 match_length -= 255;
             } else {
-                outValue = match_length;
                 next_state = WRITE_TOKEN;
                 readOffsetFlag = true;
             }
         }
-        if (compressedSize < input_size) {
-            // Limiting compression size not more than input size.
-            // Host code should ignore such blocks
+        
+        // 优化：简化写入条件
+        bool should_write = (compressedSize < input_size);
+        if (should_write) {
             outStream << outValue;
             endOfStream << 0;
             compressedSize++;

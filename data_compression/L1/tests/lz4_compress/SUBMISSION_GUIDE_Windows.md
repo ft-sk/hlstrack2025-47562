@@ -1,4 +1,12 @@
-# LZ4 Compress L1 测试工程提交与运行指南（Windows 版）
+# LZ4 Co### 1.1 环境准备
+
+1. 已安装 **Xilinx/AMD Vitis HLS 2024.2**（或 Vivado 2024.2 含 Vitis HLS）
+2. 克隆完整的 hlstrack2025 仓库：
+
+```cmd
+git clone https://gitee.com/Vickyiii/hlstrack2025.git
+cd hlstrack2025\data_compression\L1\tests\lz4_compress
+``` 测试工程提交与运行指南（Windows 版）
 
 本文面向使用 **Windows 系统**开展 `data_compression/L1/tests/lz4_compress` 优化实验的本科生，说明本地运行流程、GitHub 提交流程与所需材料。
 
@@ -8,8 +16,8 @@
 
 ### 1.1 环境准备
 
-1. 已安装 **Xilinx/AMD Vitis HLS 2024.2**（或 Vivado 2024.2 含 Vitis HLS）。
-2. 克隆完整的 Vitis_Libraries 仓库：
+1. 已安装 **Xilinx/AMD Vitis HLS 2024.2**（或 Vivado 2024.2 含 Vitis HLS）
+2. 克隆完整的 hlstrack2025仓库：
 
 ```cmd
 git clone https://gitee.com/Vickyiii/hlstrack2025.git
@@ -35,7 +43,7 @@ call C:\Xilinx\Vitis_HLS\2024.2\settings64.bat
 #### 步骤 3：切换到测试目录
 
 ```cmd
-cd C:\Users\<YourUsername>\Desktop\XUP\Competition\FPGA_national2025\Vitis_Libraries\data_compression\L1\tests\lz4_compress
+cd C:\Users\<YourUsername>\Desktop\XUP\Competition\FPGA_national2025\hlstrack2025\data_compression\L1\tests\lz4_compress
 ```
 
 > 替换 `<YourUsername>` 和路径为你的实际克隆位置。
@@ -52,7 +60,7 @@ vitis_hls -f run_hls.tcl
 
 - HLS 工作目录：`proj_<testcase>\`
 - 综合报告：`proj_<testcase>\solution1\syn\report\`
-- 日志文件：`vitis_hls.log`
+- 日志文件：`csynth.rpt`
 
 保留这些报告和日志，作为提交材料的一部分（放入 `reports\` 目录）。
 
@@ -108,6 +116,7 @@ vitis_hls
 #### 参考资料
 
 完整 GUI 操作流程请参考官方教程：
+
 - [Vitis Libraries Getting Started Tutorial](https://github.com/Xilinx/Vitis-Tutorials/tree/2024.2/Getting_Started/Vitis_Libraries)
 
 ---
@@ -118,16 +127,21 @@ vitis_hls
 
 1. 在 `data_compression\L1\tests\lz4_compress\` 下创建 `reports\` 目录
 2. 复制以下文件到 `reports\`：
-   - `vitis_hls.log` 或 `csim.log` → 重命名为 `csim.log`
-   - `proj_*\solution1\syn\report\csynth.rpt` → 重命名为 `csynth.log`
-   - `proj_*\solution1\sim\report\cosim.rpt` → 重命名为 `cosim.log`（如有）
+   - `hls\proj_lz4CompressEngineRun\solution1\syn\report\csynth.xml` → 复制为 `csynth.xml`
+   - `hls\proj_lz4CompressEngineRun\solution1\sim\report\*_cosim.rpt` → 复制为 `lz4CompressEngineRun_cosim.rpt`
+   - C Simulation 的控制台输出或日志 → 保存为 `lz4CompressEngineRun_csim.log`
 3. 保留完整报告供提交审查
+
+**文件名说明**：
+- `csynth.xml` - C Synthesis 综合报告（XML 格式）
+- `lz4CompressEngineRun_cosim.rpt` - Co-simulation RTL 仿真报告
+- `lz4CompressEngineRun_csim.log` - C Simulation 运行日志
 
 ---
 
 ## 2. GitHub 提交目录要求
 
-为便于助教自动化复现与评分，请提交完整的 **Vitis_Libraries** 仓库，按以下要求组织：
+为便于助教自动化复现与评分，请提交完整的 **hlstrack2025** 仓库，按以下要求组织：
 
 ### 2.1 允许修改的文件
 
@@ -139,9 +153,17 @@ vitis_hls
 - `data_compression/L1/include/hw/` 下其他相关头文件（如需）
 
 > **注意**：LZ4 压缩算法主要涉及：
+>
 > - `lz4_compress.hpp` - LZ4 压缩核心实现
 > - `lz_compress.hpp` - 通用 LZ 压缩框架
 > - `lz_optional.hpp` - 可选优化组件
+
+**时钟频率配置文件修改（允许）：**
+
+- `data_compression/L1/tests/lz4_compress/hls_config.tmpl` - HLS 配置模板文件
+- `data_compression/L1/tests/lz4_compress/run_hls.tcl` - Tcl 脚本（如存在）
+
+> **说明**：可以修改这些文件中的 `clock` 或 `create_clock -period` 参数来调整目标时钟频率，但需注意时序违例扣分规则（Slack ≤ 0 扣 10 分）
 
 ### 2.2 必须新增的目录与文件
 
@@ -149,21 +171,28 @@ vitis_hls
 
 ```
 data_compression/L1/tests/lz4_compress/
-├── Makefile                        # 原有文件（如有必要可微调）
+├── Makefile                        # 原有文件（保持不变）
+├── hls_config.tmpl                 # 原有文件（允许修改时钟频率）
+├── run_hls.tcl                     # 原有文件（允许修改时钟频率，如存在）
 ├── lz4_compress_test.cpp          # 原有文件（保持不变）
 ├── ...（其他原有文件保持不变）
 ├── reports/                        # 新增目录
-│   ├── csim.log                    # C 仿真日志
-│   ├── csynth.log                  # HLS 综合日志
-│   └── cosim.log                   # Co-simulation 日志
+│   ├── csynth.xml                      # HLS 综合日志
+│   ├── lz4CompressEngineRun_cosim.rpt  # Co-simulation 日志
+│   └── lz4CompressEngineRun_csim.log   # C 仿真日志
 └── prompts/                        # 新增目录
     └── llm_usage.md                # 大模型使用记录（见 §3 模板）
 ```
 
+**文件名说明**：
+- `csynth.xml` - C Synthesis 综合报告（XML 格式）
+- `lz4CompressEngineRun_cosim.rpt` - Co-simulation RTL 仿真报告
+- `lz4CompressEngineRun_csim.log` - C Simulation 运行日志
+
 ### 2.3 提交仓库完整结构示例
 
 ```
-Vitis_Libraries/
+hlstrack2025/
 ├── data_compression/
 │   ├── L1/
 │   │   ├── include/
@@ -175,20 +204,26 @@ Vitis_Libraries/
 │   │   ├── tests/
 │   │   │   └── lz4_compress/
 │   │   │       ├── Makefile
+│   │   │       ├── hls_config.tmpl     # 允许修改时钟频率
+│   │   │       ├── run_hls.tcl         # 允许修改时钟频率
 │   │   │       ├── lz4_compress_test.cpp
-│   │   │       ├── reports/            # 新增
+│   │   │       ├── reports/            # 新增（含实际生成的报告文件）
 │   │   │       └── prompts/            # 新增
 │   │   └── ...
 │   └── ...
+├── security/                           # 其他题目目录
+├── solver/                             # 其他题目目录
 └── ...（其他库目录保持原样）
 ```
 
 **注意事项：**
 
 - 仅修改 `data_compression/L1/include/hw/*.hpp` 中的头文件
+- 可修改 `hls_config.tmpl` 和 `run_hls.tcl` 中的时钟频率配置
+- `reports/` 中包含实际生成的报告文件：`csynth.xml`、`*_cosim.rpt`、`*_csim.log`
 - `reports/` 和 `prompts/` 仅在 `data_compression/L1/tests/lz4_compress/` 下新增
 - 其他所有目录与文件保持原样
-- 评审脚本将克隆官方仓库，替换你修改的头文件，复制 reports 和 prompts 后运行
+- 评审脚本将克隆官方仓库，替换你修改的头文件和配置文件，复制 reports 和 prompts 后运行
 
 ---
 
