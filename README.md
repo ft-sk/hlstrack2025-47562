@@ -30,7 +30,7 @@
 - **工具版本**：Vitis HLS 2024.2
 - **目标器件**：Zynq-7000 (xc7z020-clg484-1)
 - **优化目标**：最小化执行时间 `T_exec = Clock_Period × Latency`
-- **时钟约束**：允许修改时钟频率，时序违例不影响评分，单题分扣10分
+- **时钟约束**：允许修改时钟频率，时序违例影响评分，单题分扣10分
 - **功能约束**：必须通过 C Simulation 和 Co-simulation 验证
 - **鼓励使用**：LLM 辅助优化（DeepSeek-Coder、Qwen-Cder 等）
 
@@ -98,10 +98,12 @@ Total_Score = 30% × SHA256 + 35% × LZ4 + 35% × Cholesky
 - ✅ 完整的 `hlstrack2025` 仓库代码
 - ✅ 修改后的算法头文件（`*.hpp`）
 - ✅ 每道题目的 `reports/` 目录：
-  - `csim.log` - C仿真日志
-  - `cosim.rpt` - 联合仿真日志
-  - `csynth.rpt` - 综合报告
+  - C仿真日志
+  - 联合仿真日志
+  - 综合报告
 - ✅ `prompts/` 目录：大模型交互记录（`llm_usage.md`）
+
+**参考模板**：每个题目测试目录下的**submission guide**
 
 **提交方式**：
 
