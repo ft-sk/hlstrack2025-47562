@@ -61,9 +61,9 @@ void lzCompress(hls::stream<ap_uint<8> >& inStream, hls::stream<ap_uint<32> >& o
     typedef ap_uint<c_dictEleWidth> uintDict_t;
 
     if (input_size == 0) return;
-    // Dictionary
+    // Dictionary - 优化：使用LUTRAM减少BRAM使用
     uintDictV_t dict[LZ_DICT_SIZE];
-#pragma HLS BIND_STORAGE variable = dict type = RAM_T2P impl = BRAM
+#pragma HLS BIND_STORAGE variable = dict type = RAM_2P impl = LUTRAM
     uintDictV_t resetValue = 0;
     for (int i = 0; i < MATCH_LEVEL; i++) {
 #pragma HLS UNROLL
@@ -83,71 +83,105 @@ dict_flush:
 #pragma HLS PIPELINE off
         present_window[i] = inStream.read();
     }
+    // 优化：预读取下一个字节，减少关键路径
+    uint8_t next_byte = inStream.read();
+    
 lz_compress:
     for (uint32_t i = MATCH_LEN - 1; i < input_size - LEFT_BYTES; i++) {
 #pragma HLS PIPELINE II = 1
 #pragma HLS dependence variable = dict inter false
         uint32_t currIdx = i - MATCH_LEN + 1;
+        
+        // 优化：使用预读取的字节，减少流水线停顿
+        uint8_t current_byte = next_byte;
+        if (i < input_size - LEFT_BYTES - 1) {
+            next_byte = inStream.read();
+        }
+        
         // shift present window and load next value
         for (int m = 0; m < MATCH_LEN - 1; m++) {
 #pragma HLS UNROLL
             present_window[m] = present_window[m + 1];
         }
-        present_window[MATCH_LEN - 1] = inStream.read();
+        present_window[MATCH_LEN - 1] = current_byte;
 
-        // Calculate Hash Value
+        // 优化：简化哈希计算，减少关键路径延迟
         uint32_t hash = 0;
         if (MIN_MATCH == 3) {
-            hash = (present_window[0] << 4) ^ (present_window[1] << 3) ^ (present_window[2] << 2) ^
-                   (present_window[0] << 1) ^ (present_window[1]);
+            // 优化：使用更简单的哈希函数
+            hash = ((uint32_t)present_window[0] << 8) ^ 
+                   ((uint32_t)present_window[1] << 4) ^ 
+                   ((uint32_t)present_window[2]);
         } else {
-            hash = (present_window[0] << 4) ^ (present_window[1] << 3) ^ (present_window[2] << 2) ^ (present_window[3]);
+            hash = ((uint32_t)present_window[0] << 12) ^ 
+                   ((uint32_t)present_window[1] << 8) ^ 
+                   ((uint32_t)present_window[2] << 4) ^ 
+                   ((uint32_t)present_window[3]);
         }
+        hash &= (LZ_DICT_SIZE - 1); // 确保哈希值在范围内
 
-        // Dictionary Lookup
+        // Dictionary Lookup - 优化：分离读写操作
         uintDictV_t dictReadValue = dict[hash];
+        
+        // 优化：并行构建写入值
         uintDictV_t dictWriteValue = dictReadValue << c_dictEleWidth;
         for (int m = 0; m < MATCH_LEN; m++) {
 #pragma HLS UNROLL
             dictWriteValue.range((m + 1) * 8 - 1, m * 8) = present_window[m];
         }
         dictWriteValue.range(c_dictEleWidth - 1, MATCH_LEN * 8) = currIdx;
+        
         // Dictionary Update
         dict[hash] = dictWriteValue;
 
-        // Match search and Filtering
-        // Comp dict pick
-        uint8_t match_length = 0;
-        uint32_t match_offset = 0;
+        // 优化：匹配搜索 - 使用局部变量减少位选择延迟
+        uint8_t best_match_length = 0;
+        uint32_t best_match_offset = 0;
+        
+        // 优化：展开匹配级别循环，提高并行度
+        #pragma HLS UNROLL FACTOR=2
         for (int l = 0; l < MATCH_LEVEL; l++) {
-            uint8_t len = 0;
-            bool done = 0;
             uintDict_t compareWith = dictReadValue.range((l + 1) * c_dictEleWidth - 1, l * c_dictEleWidth);
             uint32_t compareIdx = compareWith.range(c_dictEleWidth - 1, MATCH_LEN * 8);
+            
+            // 优化：快速匹配检查
+            uint8_t match_len = 0;
+            bool valid_match = true;
+            
+            // 优化：并行比较所有字节
             for (int m = 0; m < MATCH_LEN; m++) {
-                if (present_window[m] == compareWith.range((m + 1) * 8 - 1, m * 8) && !done) {
-                    len++;
-                } else {
-                    done = 1;
+#pragma HLS UNROLL
+                if (present_window[m] != compareWith.range((m + 1) * 8 - 1, m * 8)) {
+                    valid_match = false;
+                    break;
+                } else if (valid_match) {
+                    match_len++;
                 }
             }
-            if ((len >= MIN_MATCH) && (currIdx > compareIdx) && ((currIdx - compareIdx) < LZ_MAX_OFFSET_LIMIT) &&
-                ((currIdx - compareIdx - 1) >= MIN_OFFSET)) {
-                if ((len == 3) && ((currIdx - compareIdx - 1) > 4096)) {
-                    len = 0;
-                }
-            } else {
-                len = 0;
+            
+            // 优化：合并条件检查，减少分支
+            bool offset_valid = (currIdx > compareIdx) && 
+                               ((currIdx - compareIdx) < LZ_MAX_OFFSET_LIMIT) &&
+                               ((currIdx - compareIdx - 1) >= MIN_OFFSET);
+            
+            bool length_valid = (match_len >= MIN_MATCH);
+            
+            // 特殊情况：长距离短匹配过滤
+            if ((match_len == 3) && ((currIdx - compareIdx - 1) > 4096)) {
+                length_valid = false;
             }
-            if (len > match_length) {
-                match_length = len;
-                match_offset = currIdx - compareIdx - 1;
+            
+            if (valid_match && offset_valid && length_valid && (match_len > best_match_length)) {
+                best_match_length = match_len;
+                best_match_offset = currIdx - compareIdx - 1;
             }
         }
-        ap_uint<32> outValue = 0;
+        
+        // 优化：减少输出构建延迟
+        ap_uint<32> outValue;
         outValue.range(7, 0) = present_window[0];
-        outValue.range(15, 8) = match_length;
-        outValue.range(31, 16) = match_offset;
+        outValue.range(15, 8) = best_match_length;
+        outValue.range(31, 16) = best_match_offset;
         outStream << outValue;
     }
 lz_compress_leftover:
@@ -205,7 +239,7 @@ void lzCompress(hls::stream<IntVectorStream_dt<8, 1> >& inStream, hls::stream<In
 #endif
 
     uintDictV_t dict[LZ_DICT_SIZE];
-#pragma HLS RESOURCE variable = dict core = XPM_MEMORY uram
+#pragma HLS BIND_STORAGE variable = dict type = RAM_2P impl = URAM
 
     // local buffers for each block
     uint8_t present_window[MATCH_LEN];

@@ -188,13 +188,13 @@ void msgHash(hls::stream<ap_uint<blockSize * 8> >& kipadStrm,
 #pragma HLS dataflow
 
     hls::stream<ap_uint<dataW> > mergeKipadStrm;
-#pragma HLS stream variable = mergeKipadStrm depth = 128
-#pragma HLS resource variable = mergeKipadStrm core = FIFO_BRAM
+#pragma HLS stream variable = mergeKipadStrm depth = 16
+#pragma HLS resource variable = mergeKipadStrm core = FIFO_LUTRAM
     hls::stream<ap_uint<lW> > mergeKipadLenStrm;
-#pragma HLS stream variable = mergeKipadLenStrm depth = 4
+#pragma HLS stream variable = mergeKipadLenStrm depth = 2
 #pragma HLS resource variable = mergeKipadLenStrm core = FIFO_LUTRAM
     hls::stream<bool> eMergeKipadLenStrm;
-#pragma HLS stream variable = eMergeKipadLenStrm depth = 4
+#pragma HLS stream variable = eMergeKipadLenStrm depth = 2
 #pragma HLS resource variable = eMergeKipadLenStrm core = FIFO_LUTRAM
 
     mergeKipad<dataW, lW, hshW, blockSize>(kipadStrm, kopadInStrm, msgStrm, msgLenStrm, eLenStrm, mergeKipadStrm,

@@ -97,9 +97,9 @@ LOOP_SHA256_GENENERATE_MAIN:
         nblk_strm.write(blk_num);
         end_nblk_strm.write(false);
 
-    LOOP_SHA256_GEN_FULL_BLKS:
+        LOOP_SHA256_GEN_FULL_BLKS:
         for (uint64_t j = 0; j < uint64_t(len >> 6); ++j) {
-#pragma HLS pipeline II = 16
+#pragma HLS pipeline II = 4
 #pragma HLS loop_tripcount min = 0 max = 1
             /// message block.
             SHA256Block b0;
@@ -752,34 +752,34 @@ inline void sha256_top(hls::stream<ap_uint<m_width> >& msg_strm,
 #pragma HLS DATAFLOW
     /// 512-bit Block stream
     hls::stream<SHA256Block> blk_strm("blk_strm");
-#pragma HLS STREAM variable = blk_strm depth = 32
+#pragma HLS STREAM variable = blk_strm depth = 16
 #pragma HLS RESOURCE variable = blk_strm core = FIFO_LUTRAM
 
     /// number of Blocks, send per msg
     hls::stream<uint64_t> nblk_strm("nblk_strm");
-#pragma HLS STREAM variable = nblk_strm depth = 32
+#pragma HLS STREAM variable = nblk_strm depth = 8
 #pragma HLS RESOURCE variable = nblk_strm core = FIFO_LUTRAM
     hls::stream<uint64_t> nblk_strm1("nblk_strm1");
-#pragma HLS STREAM variable = nblk_strm1 depth = 32
+#pragma HLS STREAM variable = nblk_strm1 depth = 8
 #pragma HLS RESOURCE variable = nblk_strm1 core = FIFO_LUTRAM
     hls::stream<uint64_t> nblk_strm2("nblk_strm2");
-#pragma HLS STREAM variable = nblk_strm2 depth = 32
+#pragma HLS STREAM variable = nblk_strm2 depth = 8
 #pragma HLS RESOURCE variable = nblk_strm2 core = FIFO_LUTRAM
 
     /// end flag, send per msg.
     hls::stream<bool> end_nblk_strm("end_nblk_strm");
-#pragma HLS STREAM variable = end_nblk_strm depth = 32
+#pragma HLS STREAM variable = end_nblk_strm depth = 8
 #pragma HLS RESOURCE variable = end_nblk_strm core = FIFO_LUTRAM
     hls::stream<bool> end_nblk_strm1("end_nblk_strm1");
-#pragma HLS STREAM variable = end_nblk_strm1 depth = 32
+#pragma HLS STREAM variable = end_nblk_strm1 depth = 8
 #pragma HLS RESOURCE variable = end_nblk_strm1 core = FIFO_LUTRAM
     hls::stream<bool> end_nblk_strm2("end_nblk_strm2");
-#pragma HLS STREAM variable = end_nblk_strm2 depth = 32
+#pragma HLS STREAM variable = end_nblk_strm2 depth = 8
 #pragma HLS RESOURCE variable = end_nblk_strm2 core = FIFO_LUTRAM
 
     /// W, 64 items for each block
     hls::stream<uint32_t> w_strm("w_strm");
-#pragma HLS STREAM variable = w_strm depth = 32
+#pragma HLS STREAM variable = w_strm depth = 16
 #pragma HLS RESOURCE variable = w_strm core = FIFO_LUTRAM
 
     // Generate block stream

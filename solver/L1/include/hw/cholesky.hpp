@@ -50,8 +50,8 @@ struct choleskyTraits {
     typedef InputType OFF_DIAG_T;
     typedef OutputType L_OUTPUT_T;
     static const int ARCH =
-        1; // Select implementation: 0=Basic, 1=Lower latency architecture, 2=Further improved latency architecture
-    static const int INNER_II = 1; // Specify the pipelining target for the inner loop
+        0; // Select implementation: 0=Basic (lower resource), 1=Lower latency architecture, 2=Further improved latency architecture
+    static const int INNER_II = 2; // Specify the pipelining target for the inner loop (relaxed for better timing)
     static const int UNROLL_FACTOR =
         1; // Specify the inner loop unrolling factor for the choleskyAlt2 architecture(2) to increase throughput
     static const int UNROLL_DIM = (LowerTriangularL == true ? 1 : 2); // Dimension to unroll matrix
@@ -157,11 +157,11 @@ struct choleskyTraits<LowerTriangularL,
     typedef ap_fixed<2 + (W2 - I2) + W2, 2 + (W2 - I2), AP_RND_CONV, AP_SAT, 0> RECIP_DIAG_T;
     typedef hls::x_complex<ap_fixed<W2, I2, AP_RND_CONV, AP_SAT, 0> >
         L_OUTPUT_T; // Takes new L value.  Same as L output but saturation set
-    static const int ARCH = 1;
-    static const int INNER_II = 1;
-    static const int UNROLL_FACTOR = 1;
+    static const int ARCH = 1; // Use proven stable architecture
+    static const int INNER_II = 1; // Keep aggressive II but with stable architecture
+    static const int UNROLL_FACTOR = 1; // Conservative unrolling for numerical stability
     static const int UNROLL_DIM = (LowerTriangularL == true ? 1 : 2);
-    static const int ARCH2_ZERO_LOOP = true;
+    static const int ARCH2_ZERO_LOOP = true; // Use standard zero loop handling
 };
 
 // Further specialization for std::complex<ap_fixed>
@@ -299,6 +299,7 @@ int choleskyBasic(const InputType A[RowsColsA][RowsColsA], OutputType L[RowsCols
     // fixed point.
     typename CholeskyTraits::PROD_T prod;
     typename CholeskyTraits::ACCUM_T sum[RowsColsA];
+#pragma HLS BIND_STORAGE variable=sum type=ram_1p impl=lutram
     typename CholeskyTraits::ACCUM_T A_cast_to_sum;    // A with the same dimensions as sum.
     typename CholeskyTraits::ACCUM_T prod_cast_to_sum; // prod with the same dimensions as sum.
 
@@ -313,6 +314,7 @@ int choleskyBasic(const InputType A[RowsColsA][RowsColsA], OutputType L[RowsCols
     // NOTE: The internal matrix only needs to be triangular but optimization using a 1-D array it will require addition
     // logic to generate the indexes. Refer to the choleskyAlt function.
     OutputType L_internal[RowsColsA][RowsColsA];
+#pragma HLS BIND_STORAGE variable=L_internal type=ram_2p impl=lutram
 
 col_loop:
     for (int j = 0; j < RowsColsA; j++) {
