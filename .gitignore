@@ -1,41 +1,28 @@
-# VS Code Local History
-.history/
+# 1. 首先忽略所有文件和文件夹
+/*
 
-# Common IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# 2. 然后设置例外规则（不忽略我们需要的）
 
-# Build artifacts
-*.o
-*.a
-*.so
-*.exe
-build/
-dist/
-*.log
+# 2.1 不忽略根目录下的关键配置文件
+!/.gitignore
+!/README.md
 
-# HLS generated files
-hls/
-*.rpt
-*.xml
-vivado*.jou
-vivado*.log
-*.str
-*.dir/
+# 2.2 不忽略我们的核心源代码和文档目录
+!/src/
+!/reports/
+!/prompts/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-.pytest_cache/
+# 2.3 不忽略solution1/目录本身（但先不包含里面的文件）
+!/solution1/
 
-# Jupyter Notebook
-.ipynb_checkpoints/
+# 2.4 【关键】现在，忽略solution1/目录下的所有文件
+/solution1/*
 
-# System files
-.DS_Store
-Thumbs.db
+# 2.5 【核心要求】但特别保留solution1/目录下的.prt和.xml文件
+!/solution1/*.prt
+!/solution1/*.xml
+
+# 2.6 不忽略我们放在根目录下的报告文件（如PDF）
+!/*.pdf
+!/*.docx
+!/*.md
